@@ -44,6 +44,9 @@ export default async function Home() {
         <div className="max-w-2xl mx-auto px-4 py-12">
           <h1 className="text-3xl font-bold">Feature Requests</h1>
           <p className="text-muted mt-2">Vote on what gets built next</p>
+          <p className="inline-block mt-4 text-xs text-accent bg-accent-light border border-accent/20 rounded-full px-3 py-1">
+            Demo project — built in 3 hours to showcase a Feature Request Board MVP
+          </p>
         </div>
       </section>
       <main className="flex-1 w-full max-w-2xl mx-auto px-4 py-8">
