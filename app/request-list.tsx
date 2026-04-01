@@ -130,10 +130,10 @@ export function RequestList({
                 <button
                   onClick={() => toggleVote(request.id)}
                   disabled={votingId === request.id}
-                  className={`flex flex-col items-center justify-center w-12 h-16 rounded-lg border transition-all ${
+                  className={`flex flex-col items-center justify-center w-12 h-16 rounded-lg border transition-all duration-150 ${
                     hasVoted
-                      ? "bg-accent text-white border-accent shadow-sm"
-                      : "bg-background text-foreground border-border hover:border-accent hover:text-accent"
+                      ? "bg-accent text-white border-accent shadow-md shadow-accent/30 scale-105"
+                      : "bg-background text-foreground border-border hover:border-accent hover:text-accent hover:scale-105 hover:shadow-sm"
                   }`}
                 >
                   <svg
