@@ -27,10 +27,32 @@ export default async function Home() {
     userVotes = (votes ?? []).map((v) => v.request_id);
   }
 
+  const totalRequests = requests?.length ?? 0;
+  const totalVotes =
+    requests?.reduce((sum, r) => sum + r.vote_count, 0) ?? 0;
+
   return (
     <>
       <Header user={user} />
+      <section
+        className="w-full border-b border-border"
+        style={{
+          background:
+            "linear-gradient(to bottom, var(--accent-light), var(--background))",
+        }}
+      >
+        <div className="max-w-2xl mx-auto px-4 py-12">
+          <h1 className="text-3xl font-bold">Feature Requests</h1>
+          <p className="text-muted mt-2">Vote on what gets built next</p>
+        </div>
+      </section>
       <main className="flex-1 w-full max-w-2xl mx-auto px-4 py-8">
+        <div className="text-sm text-muted mb-6">
+          <span className="font-medium text-foreground">{totalRequests}</span>{" "}
+          requests ·{" "}
+          <span className="font-medium text-foreground">{totalVotes}</span>{" "}
+          votes cast
+        </div>
         {user && <SubmitForm />}
         <RequestList
           initialRequests={requests ?? []}

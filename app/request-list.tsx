@@ -130,46 +130,38 @@ export function RequestList({
                 <button
                   onClick={() => toggleVote(request.id)}
                   disabled={votingId === request.id}
-                  className={`flex flex-col items-center justify-center w-14 h-14 rounded-lg border text-sm font-semibold transition-all ${
+                  className={`flex flex-col items-center justify-center w-12 h-16 rounded-lg border transition-all ${
                     hasVoted
                       ? "bg-accent text-white border-accent shadow-sm"
                       : "bg-background text-foreground border-border hover:border-accent hover:text-accent"
                   }`}
                 >
                   <svg
-                    className="w-4 h-4 mb-0.5"
-                    fill={hasVoted ? "currentColor" : "none"}
+                    className="w-5 h-5"
                     viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
+                    fill="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 15.75l7.5-7.5 7.5 7.5"
-                    />
+                    <polygon points="12,4 22,20 2,20" />
                   </svg>
-                  {request.vote_count}
+                  <span className="text-base font-bold">
+                    {request.vote_count}
+                  </span>
                 </button>
               ) : (
                 <div
-                  className="flex flex-col items-center justify-center w-14 h-14 rounded-lg border border-border bg-background text-sm font-semibold text-muted cursor-default"
+                  className="flex flex-col items-center justify-center w-12 h-16 rounded-lg border border-border bg-background text-muted cursor-default"
                   title="Sign in to vote"
                 >
                   <svg
-                    className="w-4 h-4 mb-0.5"
-                    fill="none"
+                    className="w-5 h-5"
                     viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
+                    fill="currentColor"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 15.75l7.5-7.5 7.5 7.5"
-                    />
+                    <polygon points="12,4 22,20 2,20" />
                   </svg>
-                  {request.vote_count}
+                  <span className="text-base font-bold">
+                    {request.vote_count}
+                  </span>
                 </div>
               )}
             </div>
