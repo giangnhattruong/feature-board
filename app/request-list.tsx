@@ -45,6 +45,7 @@ export function RequestList({
   );
   const [votingId, setVotingId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [voteError, setVoteError] = useState<string | null>(null);
   const supabase = createClient();
   const router = useRouter();
 
@@ -53,6 +54,7 @@ export function RequestList({
     if (votingId) return;
 
     setVotingId(requestId);
+    setVoteError(null);
     const hasVoted = userVotes.has(requestId);
 
     // Optimistic update
@@ -70,16 +72,32 @@ export function RequestList({
       return next;
     });
 
-    if (hasVoted) {
-      await supabase
-        .from("votes")
-        .delete()
-        .eq("request_id", requestId)
-        .eq("user_id", currentUserId);
-    } else {
-      await supabase
-        .from("votes")
-        .insert({ request_id: requestId, user_id: currentUserId });
+    const { error } = hasVoted
+      ? await supabase
+          .from("votes")
+          .delete()
+          .eq("request_id", requestId)
+          .eq("user_id", currentUserId)
+      : await supabase
+          .from("votes")
+          .insert({ request_id: requestId, user_id: currentUserId });
+
+    if (error) {
+      // Revert optimistic update
+      setRequests((prev) =>
+        prev.map((r) =>
+          r.id === requestId
+            ? { ...r, vote_count: r.vote_count + (hasVoted ? 1 : -1) }
+            : r
+        )
+      );
+      setUserVotes((prev) => {
+        const next = new Set(prev);
+        if (hasVoted) next.add(requestId);
+        else next.delete(requestId);
+        return next;
+      });
+      setVoteError("Vote failed — please try again.");
     }
 
     setVotingId(null);
@@ -116,6 +134,11 @@ export function RequestList({
 
   return (
     <div className="space-y-3">
+      {voteError && (
+        <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+          {voteError}
+        </p>
+      )}
       {requests.map((request) => {
         const hasVoted = userVotes.has(request.id);
 
