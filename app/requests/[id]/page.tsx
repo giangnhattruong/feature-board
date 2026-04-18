@@ -2,6 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import { VoteButton } from './vote-button'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +37,20 @@ export default async function RequestDetailPage({ params }: Props) {
     .single()
 
   if (!request) notFound()
+
+  const { data: authUser } = await supabase.auth.getUser()
+  const currentUserId = authUser?.user?.id ?? null
+
+  let initialVoted = false
+  if (currentUserId) {
+    const { data: voteRecord } = await supabase
+      .from('votes')
+      .select('id')
+      .eq('request_id', id)
+      .eq('user_id', currentUserId)
+      .single()
+    initialVoted = !!voteRecord
+  }
 
   return (
     <div className="flex-1 px-4 sm:px-8 py-8 md:py-12 max-w-screen-xl mx-auto w-full">
@@ -74,24 +89,12 @@ export default async function RequestDetailPage({ params }: Props) {
         <aside className="w-full lg:w-80 flex flex-col gap-6">
           {/* Voting box */}
           <div className="bg-surface-container-lowest rounded-xl p-6 ambient-shadow ghost-border">
-            <div className="flex flex-col items-center gap-3">
-              <span className="material-symbols-outlined text-4xl text-primary" aria-hidden="true">
-                keyboard_arrow_up
-              </span>
-              <span className="font-headline font-extrabold text-5xl text-on-surface">
-                {request.vote_count}
-              </span>
-              <p className="text-sm font-body text-on-surface-variant">votes</p>
-              <Link
-                href="/"
-                className="w-full py-3 mt-2 flex items-center justify-center gap-2 rounded-xl
-                  bg-surface-container-highest text-primary text-sm font-body font-medium
-                  hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors"
-              >
-                <span className="material-symbols-outlined text-base" aria-hidden="true">thumb_up</span>
-                Go vote
-              </Link>
-            </div>
+            <VoteButton
+              requestId={id}
+              initialVoteCount={request.vote_count}
+              initialVoted={initialVoted}
+              currentUserId={currentUserId}
+            />
           </div>
 
           {/* Metadata card */}

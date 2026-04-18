@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Manrope, Inter } from "next/font/google"
+import localFont from "next/font/local"
 import "./globals.css"
 import { Header } from "./header"
 import { Sidebar } from "./sidebar"
@@ -19,6 +20,12 @@ const inter = Inter({
   preload: true,
 })
 
+const materialSymbols = localFont({
+  src: "../public/fonts/material-symbols-outlined.woff2",
+  variable: "--font-material-symbols",
+  display: "block",
+})
+
 export const metadata: Metadata = {
   title: "Feature Board",
   description: "Submit and vote on feature requests",
@@ -30,13 +37,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${manrope.variable} ${inter.variable} h-full antialiased`}>
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200"
-        />
-      </head>
+    <html lang="en" className={`${manrope.variable} ${inter.variable} ${materialSymbols.variable} h-full antialiased`}>
       <body className="min-h-screen flex bg-surface-dim">
         <SidebarProvider>
           <Sidebar />
