@@ -1,234 +1,190 @@
-"use client";
+'use client'
 
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createBrowserClient } from '@supabase/ssr'
 
 interface Request {
-  id: string;
-  title: string;
-  description: string | null;
-  created_by: string | null;
-  created_at: string;
-  vote_count: number;
+  id: string
+  title: string
+  description: string | null
+  created_by: string | null
+  created_at: string
+  vote_count: number
+}
+
+interface Props {
+  initialRequests: Request[]
+  currentUserId: string | null
+  currentUserEmail: string | null
+  initialUserVotes: string[]
 }
 
 function timeAgo(dateStr: string): string {
-  const seconds = Math.floor(
-    (Date.now() - new Date(dateStr).getTime()) / 1000
-  );
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  const months = Math.floor(days / 30);
-  return `${months}mo ago`;
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
 }
 
-export function RequestList({
-  initialRequests,
-  currentUserId,
-  currentUserEmail,
-  initialUserVotes,
-}: {
-  initialRequests: Request[];
-  currentUserId: string | null;
-  currentUserEmail: string | null;
-  initialUserVotes: string[];
-}) {
-  const [requests, setRequests] = useState(initialRequests);
-  const [userVotes, setUserVotes] = useState<Set<string>>(
-    new Set(initialUserVotes)
-  );
-  const [votingId, setVotingId] = useState<string | null>(null);
-  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
-  const [voteError, setVoteError] = useState<string | null>(null);
-  const supabase = createClient();
-  const router = useRouter();
+export function RequestList({ initialRequests, currentUserId, currentUserEmail, initialUserVotes }: Props) {
+  const router = useRouter()
+  const [requests, setRequests] = useState<Request[]>(initialRequests)
+  const [userVotes, setUserVotes] = useState(new Set(initialUserVotes))
+  const [votingId, setVotingId] = useState<string | null>(null)
+  const [voteError, setVoteError] = useState<string | null>(null)
+
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 
   async function toggleVote(requestId: string) {
-    if (!currentUserId) return;
-    if (votingId) return;
+    if (!currentUserId || votingId) return
+    setVotingId(requestId)
+    setVoteError(null)
 
-    setVotingId(requestId);
-    setVoteError(null);
-    const hasVoted = userVotes.has(requestId);
-
+    const voted = userVotes.has(requestId)
     // Optimistic update
-    setRequests((prev) =>
-      prev.map((r) =>
-        r.id === requestId
-          ? { ...r, vote_count: r.vote_count + (hasVoted ? -1 : 1) }
-          : r
-      )
-    );
-    setUserVotes((prev) => {
-      const next = new Set(prev);
-      if (hasVoted) next.delete(requestId);
-      else next.add(requestId);
-      return next;
-    });
+    setRequests(prev => prev.map(r =>
+      r.id === requestId ? { ...r, vote_count: r.vote_count + (voted ? -1 : 1) } : r
+    ))
+    setUserVotes(prev => {
+      const next = new Set(prev)
+      if (voted) {
+        next.delete(requestId)
+      } else {
+        next.add(requestId)
+      }
+      return next
+    })
 
-    const { error } = hasVoted
-      ? await supabase
-          .from("votes")
-          .delete()
-          .eq("request_id", requestId)
-          .eq("user_id", currentUserId)
-      : await supabase
-          .from("votes")
-          .insert({ request_id: requestId, user_id: currentUserId });
+    const { error } = voted
+      ? await supabase.from('votes').delete().eq('request_id', requestId).eq('user_id', currentUserId)
+      : await supabase.from('votes').insert({ request_id: requestId, user_id: currentUserId })
 
     if (error) {
-      // Revert optimistic update
-      setRequests((prev) =>
-        prev.map((r) =>
-          r.id === requestId
-            ? { ...r, vote_count: r.vote_count + (hasVoted ? 1 : -1) }
-            : r
-        )
-      );
-      setUserVotes((prev) => {
-        const next = new Set(prev);
-        if (hasVoted) next.add(requestId);
-        else next.delete(requestId);
-        return next;
-      });
-      setVoteError("Vote failed — please try again.");
+      // Rollback
+      setRequests(prev => prev.map(r =>
+        r.id === requestId ? { ...r, vote_count: r.vote_count + (voted ? 1 : -1) } : r
+      ))
+      setUserVotes(prev => {
+        const next = new Set(prev)
+        if (voted) {
+          next.add(requestId)
+        } else {
+          next.delete(requestId)
+        }
+        return next
+      })
+      setVoteError('Failed to register vote. Please try again.')
+    } else {
+      router.refresh()
     }
-
-    setVotingId(null);
-    router.refresh();
+    setVotingId(null)
   }
 
   if (requests.length === 0) {
     return (
-      <div className="text-center py-16">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-accent-light mb-4">
-          <svg
-            className="w-8 h-8 text-accent"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 4.5v15m7.5-7.5h-15"
-            />
-          </svg>
+      <div className="text-center py-20">
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary-fixed mb-6">
+          <span className="material-symbols-outlined text-4xl text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+            dashboard
+          </span>
         </div>
-        <h3 className="text-lg font-semibold mb-1">No feature requests yet</h3>
-        <p className="text-sm text-muted">
-          {currentUserId
-            ? "Be the first to submit a feature request!"
-            : "Sign in to submit the first feature request."}
+        <h3 className="text-xl font-headline font-bold text-on-surface mb-2">No feature requests yet</h3>
+        <p className="text-sm font-body text-on-surface-variant">
+          {currentUserId ? 'Be the first — submit a request above.' : 'Sign in to submit the first request.'}
         </p>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col gap-6">
       {voteError && (
-        <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
+        <p className="text-sm font-body text-on-error-container bg-error-container rounded-xl px-4 py-3">
           {voteError}
         </p>
       )}
-      {requests.map((request) => {
-        const hasVoted = userVotes.has(request.id);
+
+      {requests.map(request => {
+        const voted = userVotes.has(request.id)
+        const isOwner = currentUserId && request.created_by === currentUserId
+        const isVoting = votingId === request.id
 
         return (
-          <div
+          <article
             key={request.id}
-            className="bg-card rounded-xl border border-border p-4 shadow-sm flex gap-4"
+            className="bg-surface-container-lowest rounded-xl p-6 ambient-shadow ambient-shadow-hover transition-all duration-200"
           >
-            {/* Vote button */}
-            <div className="flex-shrink-0">
-              {currentUserId ? (
-                <button
-                  onClick={() => toggleVote(request.id)}
-                  disabled={votingId === request.id}
-                  className={`flex flex-col items-center justify-center w-12 h-16 rounded-lg border transition-all duration-150 ${
-                    hasVoted
-                      ? "bg-accent text-white border-accent shadow-md shadow-accent/30 scale-105"
-                      : "bg-background text-foreground border-border hover:border-accent hover:text-accent hover:scale-105 hover:shadow-sm"
-                  }`}
-                >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Upvote box */}
+              <div className="flex-shrink-0">
+                {currentUserId ? (
+                  <button
+                    onClick={() => toggleVote(request.id)}
+                    disabled={isVoting}
+                    aria-label={voted ? `Remove vote from ${request.title}` : `Vote for ${request.title}`}
+                    className={`flex flex-col items-center justify-center min-w-[80px] p-4 rounded-xl
+                      border transition-all duration-200 gap-1
+                      ${voted
+                        ? 'bg-primary text-on-primary border-primary shadow-[0_8px_16px_-4px_rgba(51,48,147,0.3)]'
+                        : 'bg-surface-container-low text-on-surface-variant border-outline-variant/20 hover:text-primary hover:bg-primary-fixed hover:border-primary/20'
+                      }
+                      disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
-                    <polygon points="12,4 22,20 2,20" />
-                  </svg>
-                  <span className="text-base font-bold">
-                    {request.vote_count}
-                  </span>
-                </button>
-              ) : (
-                <div
-                  className="flex flex-col items-center justify-center w-12 h-16 rounded-lg border border-border bg-background text-muted cursor-default"
-                  title="Sign in to vote"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
+                    <span className="material-symbols-outlined text-3xl" aria-hidden="true">
+                      keyboard_arrow_up
+                    </span>
+                    <span className="font-headline font-bold text-xl">{request.vote_count}</span>
+                  </button>
+                ) : (
+                  <div className="flex flex-col items-center justify-center min-w-[80px] p-4 rounded-xl
+                    bg-surface-container-low text-outline border border-outline-variant/20 gap-1 cursor-default"
+                    aria-label={`${request.vote_count} votes`}
                   >
-                    <polygon points="12,4 22,20 2,20" />
-                  </svg>
-                  <span className="text-base font-bold">
-                    {request.vote_count}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 min-w-0">
-              <h3 className="text-sm font-semibold leading-snug mb-1">
-                {request.title}
-              </h3>
-              {request.description && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExpandedIds((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(request.id)) next.delete(request.id);
-                      else next.add(request.id);
-                      return next;
-                    })
-                  }
-                  className="text-left w-full group"
-                >
-                  <p
-                    className={`text-sm text-muted leading-relaxed mb-2 ${
-                      expandedIds.has(request.id) ? "" : "line-clamp-2"
-                    }`}
-                  >
-                    {request.description}
-                  </p>
-                </button>
-              )}
-              <div className="flex items-center gap-2 text-xs text-muted">
-                <span>{timeAgo(request.created_at)}</span>
-                {request.created_by === currentUserId && currentUserEmail && (
-                  <>
-                    <span className="text-border">·</span>
-                    <span>{currentUserEmail}</span>
-                  </>
+                    <span className="material-symbols-outlined text-3xl" aria-hidden="true">keyboard_arrow_up</span>
+                    <span className="font-headline font-bold text-xl">{request.vote_count}</span>
+                  </div>
                 )}
               </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 mb-2">
+                  <span className="rounded-full px-3 py-1 text-xs font-body font-semibold uppercase tracking-wider
+                    bg-secondary-container text-on-secondary-container">
+                    Planned
+                  </span>
+                </div>
+                <Link href={`/requests/${request.id}`}>
+                  <h3 className="text-2xl font-headline font-bold tracking-tight text-on-surface mb-2 hover:text-primary transition-colors">
+                    {request.title}
+                  </h3>
+                </Link>
+                {request.description && (
+                  <p className="font-body text-on-surface-variant leading-relaxed mb-3 line-clamp-2">
+                    {request.description}
+                  </p>
+                )}
+                <div className="flex items-center gap-2 text-xs font-body text-outline">
+                  <span>{timeAgo(request.created_at)}</span>
+                  {isOwner && (
+                    <>
+                      <span className="text-outline-variant">·</span>
+                      <span>{currentUserEmail}</span>
+                    </>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        );
+          </article>
+        )
       })}
     </div>
-  );
+  )
 }

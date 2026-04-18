@@ -24,12 +24,19 @@ A community-driven feature request and voting platform built with Next.js 16 and
 
 **Feature Board** is a minimal MVP that lets users submit and vote on feature requests. It is designed to validate whether a community-driven feedback mechanism is worth building further.
 
+**UI Design:**
+- Modern Material Design 3 interface (Stitch design system)
+- Sidebar navigation (fixed on desktop ≥768px, slide-in drawer on mobile)
+- Split-screen auth page with gradient left panel
+- Detail view route (`/requests/[id]`) for individual request pages
+- Responsive at all breakpoints (375px mobile, 768px tablet, 1440px desktop)
+
 **Core user flows:**
-- Anyone can browse submitted feature requests, sorted by popularity
-- Authenticated users can submit new requests (title + optional description)
+- Anyone can browse feature requests (sorted by popularity), view details on individual pages
+- Authenticated users can submit new requests (title + description with decorative toolbar)
 - Authenticated users can upvote any request (one vote per user per request)
-- Users can retract their vote
-- Requests are ranked by vote count, then by recency
+- Users can retract votes
+- Requests ranked by vote count, then by recency
 
 ---
 
@@ -50,11 +57,19 @@ Browser
 ```
 
 **Rendering strategy:**
-- The home page (`/`) is a **Server Component** with `force-dynamic` — it fetches fresh data on every request, never from cache.
-- Login page (`/login`) is a **Client Component** — it drives authentication interactions in the browser.
-- Voting and form submission are **Client Components** with optimistic UI — the UI updates immediately, then syncs with the database.
+- Root layout includes `SidebarProvider` (React Context) to share mobile sidebar state between Header and Sidebar components.
+- Sidebar is a **Client Component** with drawer mode (mobile) and fixed mode (desktop ≥768px).
+- The home page (`/`) is a **Server Component** with `force-dynamic` — fetches fresh data on every request.
+- Detail page (`/requests/[id]`) is a **Server Component** — fetches single request with metadata sidebar.
+- Login page (`/login`) is a **Client Component** — drives auth in the browser, split-screen layout.
+- Voting and form submission are **Client Components** with optimistic UI — updates immediately, syncs via `router.refresh()`.
 
 **No custom API layer** — all database operations go directly to Supabase via the JavaScript client, protected by Row-Level Security policies on every table.
+
+**Design system:**
+- Material Design 3 color palette (primary #333093 → primary-container #4b49ac, surface tints)
+- Custom utilities: `glass-effect`, `ambient-shadow`, `ambient-shadow-hover`, `ghost-border`
+- Tailwind v4 with `@theme inline` for color tokens and font variables
 
 ---
 
@@ -65,6 +80,9 @@ Browser
 | Framework | Next.js | 16.2.1 |
 | UI | React | 19.2.4 |
 | Styling | Tailwind CSS | 4.x |
+| Design | Material Design 3 (Stitch) | — |
+| Fonts | Manrope (headlines), Inter (body) | Google Fonts |
+| Icons | Material Symbols Outlined | Google Fonts |
 | Database & Auth | Supabase | 2.101.0 |
 | Auth SSR | @supabase/ssr | 0.10.0 |
 | Language | TypeScript | 5.x |
@@ -77,29 +95,34 @@ Browser
 ```
 DemoMVP/
 ├── app/                        # Next.js App Router
-│   ├── layout.tsx              # Root layout — fonts, global styles, body wrapper
-│   ├── page.tsx                # Home page (Server Component) — fetches and renders the board
-│   ├── globals.css             # Global styles, CSS variables, Tailwind import
-│   ├── header.tsx              # Sticky nav bar — branding, user email, sign out
-│   ├── submit-form.tsx         # Feature request submission form
-│   ├── request-list.tsx        # Feature request list with voting
-│   └── login/
-│       └── page.tsx            # Sign in / sign up page
+│   ├── layout.tsx              # Root layout — Manrope/Inter fonts, Material Symbols link, sidebar provider
+│   ├── page.tsx                # Home page (Server Component) — feature board
+│   ├── globals.css             # Global styles, CSS vars (Material Design 3), Tailwind import
+│   ├── sidebar-context.tsx     # React Context — sidebar open/close state
+│   ├── sidebar.tsx             # Sidebar nav (fixed desktop, drawer mobile with hamburger)
+│   ├── header.tsx              # Sticky TopAppBar — branding, auth, mobile hamburger
+│   ├── submit-form.tsx         # Feature request form with decorative toolbar
+│   ├── request-list.tsx        # Feature request list with voting, status chips
+│   ├── login/
+│   │   └── page.tsx            # Split-screen auth page (gradient left panel)
+│   └── requests/
+│       └── [id]/
+│           └── page.tsx        # Detail view — single request + vote sidebar
 │
 ├── lib/
 │   └── supabase/
 │       ├── client.ts           # Supabase browser client (for Client Components)
-│       └── server.ts           # Supabase server client (for Server Components and Middleware)
+│       └── server.ts           # Supabase server client (for Server Components)
 │
 ├── supabase/
 │   └── migrations/
 │       └── 001_schema.sql      # Full DB schema — tables, RLS policies, triggers
 │
 ├── proxy.ts                    # Next.js middleware — refreshes Supabase auth tokens
-├── next.config.ts              # Next.js config (currently default)
-├── tsconfig.json               # TypeScript config (strict, bundler resolution, @/* alias)
-├── postcss.config.mjs          # PostCSS config for Tailwind v4
-└── .env.local.example          # Environment variable template
+├── next.config.ts              # Next.js config
+├── tsconfig.json               # TypeScript strict config
+├── postcss.config.mjs          # PostCSS for Tailwind v4
+└── .env.local.example          # Environment template
 ```
 
 ---
@@ -182,8 +205,24 @@ Request to /
       → lib/supabase/server.ts creates server client
       → SELECT all requests ORDER BY vote_count DESC, created_at DESC
       → SELECT votes WHERE user_id = current user (if logged in)
-  → Renders Header, SubmitForm (if logged in), RequestList
-  → HTML sent to browser (no JS needed for initial render)
+  → Layout wraps content: SidebarProvider > Sidebar > Header > main
+      → Sidebar (Client) reads context, shows drawer on mobile
+      → Header (Client) fetches user state, shows mobile hamburger
+  → Renders RequestList with cards (title → clickable to /requests/[id])
+  → HTML sent to browser
+```
+
+### Loading detail page
+
+```
+Request to /requests/[id]
+  → proxy.ts refreshes auth token
+  → app/requests/[id]/page.tsx (Server Component) runs
+      → SELECT * FROM requests WHERE id = [id]
+      → 404 if not found
+  → Renders title, description, vote count in main area
+  → Right sidebar: vote count, "Go vote" link (back to /), metadata
+  → HTML sent to browser
 ```
 
 ### Submitting a feature request
