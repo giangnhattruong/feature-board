@@ -37,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className={`${manrope.variable} ${inter.variable} ${materialSymbols.variable} h-full antialiased`}>
+    <html lang="en" className={`${manrope.variable} ${inter.variable} ${materialSymbols.variable} antialiased`}>
       <body className="min-h-screen flex bg-surface-dim">
         <SidebarProvider>
           <Sidebar />

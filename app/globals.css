@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+html {
+  overscroll-behavior: none;
+}
+
 @theme inline {
   --color-primary: #333093;
   --color-primary-container: #4b49ac;
@@ -42,6 +46,7 @@ body {
   background-color: var(--color-surface-dim);
   color: var(--color-on-surface);
   font-family: var(--font-body);
+  overscroll-behavior: none;
 }
 
 .material-symbols-outlined {
@@ -63,6 +68,7 @@ body {
 @utility glass-effect {
   background: rgba(252, 248, 255, 0.8);
   backdrop-filter: blur(24px);
+  will-change: transform;
 }
 
 @utility ambient-shadow {
